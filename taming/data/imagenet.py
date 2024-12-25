@@ -24,7 +24,9 @@ def give_synsets_from_indices(indices, path_to_yaml="data/imagenet_idx_to_synset
 
 def str_to_indices(string):
     """Expects a string in the format '32-123, 256, 280-321'"""
-    assert not string.endswith(","), "provided string '{}' ends with a comma, pls remove it".format(string)
+    assert not string.endswith(","), "provided string '{}' ends with a comma, pls remove it".format(
+        string
+    )
     subs = string.split(",")
     indices = []
     for sub in subs:
@@ -41,7 +43,7 @@ def str_to_indices(string):
 class ImageNetBase(Dataset):
     def __init__(self, config=None):
         self.config = config or OmegaConf.create()
-        if not type(self.config)==dict:
+        if not type(self.config) == dict:
             self.config = OmegaConf.to_container(self.config)
         self._prepare()
         self._prepare_synset_to_human()
@@ -58,13 +60,17 @@ class ImageNetBase(Dataset):
         raise NotImplementedError()
 
     def _filter_relpaths(self, relpaths):
-        ignore = set([
-            "n06596364_9591.JPEG",
-        ])
+        ignore = set(
+            [
+                "n06596364_9591.JPEG",
+            ]
+        )
         relpaths = [rpath for rpath in relpaths if not rpath.split("/")[-1] in ignore]
         if "sub_indices" in self.config:
             indices = str_to_indices(self.config["sub_indices"])
-            synsets = give_synsets_from_indices(indices, path_to_yaml=self.idx2syn)  # returns a list of strings
+            synsets = give_synsets_from_indices(
+                indices, path_to_yaml=self.idx2syn
+            )  # returns a list of strings
             files = []
             for rpath in relpaths:
                 syn = rpath.split("/")[0]
@@ -78,14 +84,13 @@ class ImageNetBase(Dataset):
         SIZE = 2655750
         URL = "https://heibox.uni-heidelberg.de/f/9f28e956cd304264bb82/?dl=1"
         self.human_dict = os.path.join(self.root, "synset_human.txt")
-        if (not os.path.exists(self.human_dict) or
-                not os.path.getsize(self.human_dict)==SIZE):
+        if not os.path.exists(self.human_dict) or not os.path.getsize(self.human_dict) == SIZE:
             download(URL, self.human_dict)
 
     def _prepare_idx_to_synset(self):
         URL = "https://heibox.uni-heidelberg.de/f/d835d5b6ceda4d3aa910/?dl=1"
         self.idx2syn = os.path.join(self.root, "imagenet_idx_to_synset.yaml")
-        if (not os.path.exists(self.idx2syn)):
+        if not os.path.exists(self.idx2syn):
             download(URL, self.idx2syn)
 
     def _load(self):
@@ -93,7 +98,14 @@ class ImageNetBase(Dataset):
             self.relpaths = f.read().splitlines()
             l1 = len(self.relpaths)
             self.relpaths = self._filter_relpaths(self.relpaths)
-            print("Removed {} files from filelist during filtering.".format(l1 - len(self.relpaths)))
+            print(
+                "Removed {} files from filelist during filtering.".format(l1 - len(self.relpaths))
+            )
+
+        dataset_length = self.config.get("length", 1.0)
+        assert 0.0 < dataset_length <= 1.0
+        self.relpaths = self.relpaths[: int(dataset_length * len(self.relpaths))]
+        print(f'Using {len(self.relpaths)} paths')
 
         self.synsets = [p.split("/")[0] for p in self.relpaths]
         self.abspaths = [os.path.join(self.datadir, p) for p in self.relpaths]
@@ -114,10 +126,12 @@ class ImageNetBase(Dataset):
             "class_label": np.array(self.class_labels),
             "human_label": np.array(self.human_labels),
         }
-        self.data = ImagePaths(self.abspaths,
-                               labels=labels,
-                               size=retrieve(self.config, "size", default=0),
-                               random_crop=self.random_crop)
+        self.data = ImagePaths(
+            self.abspaths,
+            labels=labels,
+            size=retrieve(self.config, "size", default=0),
+            random_crop=self.random_crop,
+        )
 
 
 class ImageNetTrain(ImageNetBase):
@@ -132,13 +146,14 @@ class ImageNetTrain(ImageNetBase):
     ]
 
     def _prepare(self):
-        self.random_crop = retrieve(self.config, "ImageNetTrain/random_crop",
-                                    default=True)
+        self.random_crop = retrieve(self.config, "ImageNetTrain/random_crop", default=True)
         data_root = self.config["data_root"]
         self.root = os.path.join(data_root, self.NAME)
         self.datadir = self.root
-        if self.config["subset"] is not None: # for training in subset
-            self.txt_filelist = os.path.join("../../data", "{}_{}.txt".format(self.NAME, self.config["subset"]))
+        if self.config["subset"] is not None:  # for training in subset
+            self.txt_filelist = os.path.join(
+                "../../data", "{}_{}.txt".format(self.NAME, self.config["subset"])
+            )
         else:
             self.txt_filelist = os.path.join(self.root, "filelist.txt")
         self.expected_length = 1281167
@@ -149,8 +164,9 @@ class ImageNetTrain(ImageNetBase):
             datadir = self.datadir
             if not os.path.exists(datadir):
                 path = os.path.join(self.root, self.FILES[0])
-                if not os.path.exists(path) or not os.path.getsize(path)==self.SIZES[0]:
+                if not os.path.exists(path) or not os.path.getsize(path) == self.SIZES[0]:
                     import academictorrents as at
+
                     atpath = at.get(self.AT_HASH, datastore=self.root)
                     assert atpath == path
 
@@ -162,7 +178,7 @@ class ImageNetTrain(ImageNetBase):
                 print("Extracting sub-tars.")
                 subpaths = sorted(glob.glob(os.path.join(datadir, "*.tar")))
                 for subpath in tqdm(subpaths):
-                    subdir = subpath[:-len(".tar")]
+                    subdir = subpath[: -len(".tar")]
                     os.makedirs(subdir, exist_ok=True)
                     with tarfile.open(subpath, "r:") as tar:
                         tar.extractall(path=subdir)
@@ -170,7 +186,7 @@ class ImageNetTrain(ImageNetBase):
             filelist = glob.glob(os.path.join(datadir, "**", "*.JPEG"))
             filelist = [os.path.relpath(p, start=datadir) for p in filelist]
             filelist = sorted(filelist)
-            filelist = "\n".join(filelist)+"\n"
+            filelist = "\n".join(filelist) + "\n"
             with open(self.txt_filelist, "w") as f:
                 f.write(filelist)
 
@@ -192,13 +208,14 @@ class ImageNetValidation(ImageNetBase):
     ]
 
     def _prepare(self):
-        self.random_crop = retrieve(self.config, "ImageNetValidation/random_crop",
-                                    default=False)
+        self.random_crop = retrieve(self.config, "ImageNetValidation/random_crop", default=False)
         data_root = self.config["data_root"]
         self.root = os.path.join(data_root, self.NAME)
         self.datadir = self.root
-        if self.config["subset"] is not None: # for debugging
-            self.txt_filelist = os.path.join("../../data", "{}_{}.txt".format(self.NAME, self.config["subset"]))
+        if self.config["subset"] is not None:  # for debugging
+            self.txt_filelist = os.path.join(
+                "../../data", "{}_{}.txt".format(self.NAME, self.config["subset"])
+            )
         else:
             self.txt_filelist = os.path.join(self.root, "filelist.txt")
 
@@ -210,8 +227,9 @@ class ImageNetValidation(ImageNetBase):
             datadir = self.datadir
             if not os.path.exists(datadir):
                 path = os.path.join(self.root, self.FILES[0])
-                if not os.path.exists(path) or not os.path.getsize(path)==self.SIZES[0]:
+                if not os.path.exists(path) or not os.path.getsize(path) == self.SIZES[0]:
                     import academictorrents as at
+
                     atpath = at.get(self.AT_HASH, datastore=self.root)
                     assert atpath == path
 
@@ -221,7 +239,7 @@ class ImageNetValidation(ImageNetBase):
                     tar.extractall(path=datadir)
 
                 vspath = os.path.join(self.root, self.FILES[1])
-                if not os.path.exists(vspath) or not os.path.getsize(vspath)==self.SIZES[1]:
+                if not os.path.exists(vspath) or not os.path.getsize(vspath) == self.SIZES[1]:
                     download(self.VS_URL, vspath)
 
                 with open(vspath, "r") as f:
@@ -240,37 +258,34 @@ class ImageNetValidation(ImageNetBase):
             filelist = glob.glob(os.path.join(datadir, "**", "*.JPEG"))
             filelist = [os.path.relpath(p, start=datadir) for p in filelist]
             filelist = sorted(filelist)
-            filelist = "\n".join(filelist)+"\n"
+            filelist = "\n".join(filelist) + "\n"
             with open(self.txt_filelist, "w") as f:
                 f.write(filelist)
 
             bdu.mark_prepared(self.root)
 
 
-def get_preprocessor(size=None, random_crop=False, additional_targets=None,
-                     crop_size=None):
+def get_preprocessor(size=None, random_crop=False, additional_targets=None, crop_size=None):
     if size is not None and size > 0:
         transforms = list()
-        rescaler = albumentations.SmallestMaxSize(max_size = size)
+        rescaler = albumentations.SmallestMaxSize(max_size=size)
         transforms.append(rescaler)
         if not random_crop:
-            cropper = albumentations.CenterCrop(height=size,width=size)
+            cropper = albumentations.CenterCrop(height=size, width=size)
             transforms.append(cropper)
         else:
-            cropper = albumentations.RandomCrop(height=size,width=size)
+            cropper = albumentations.RandomCrop(height=size, width=size)
             transforms.append(cropper)
             flipper = albumentations.HorizontalFlip()
             transforms.append(flipper)
-        preprocessor = albumentations.Compose(transforms,
-                                              additional_targets=additional_targets)
+        preprocessor = albumentations.Compose(transforms, additional_targets=additional_targets)
     elif crop_size is not None and crop_size > 0:
         if not random_crop:
-            cropper = albumentations.CenterCrop(height=crop_size,width=crop_size)
+            cropper = albumentations.CenterCrop(height=crop_size, width=crop_size)
         else:
-            cropper = albumentations.RandomCrop(height=crop_size,width=crop_size)
+            cropper = albumentations.RandomCrop(height=crop_size, width=crop_size)
         transforms = [cropper]
-        preprocessor = albumentations.Compose(transforms,
-                                              additional_targets=additional_targets)
+        preprocessor = albumentations.Compose(transforms, additional_targets=additional_targets)
     else:
         preprocessor = lambda **kwargs: kwargs
     return preprocessor
