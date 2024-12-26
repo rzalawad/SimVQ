@@ -1,15 +1,19 @@
-import os, tarfile, glob, shutil
-import yaml
-import numpy as np
-from tqdm import tqdm
-from PIL import Image
-import albumentations
-from omegaconf import OmegaConf
-from torch.utils.data import Dataset
+import glob
+import os
+import random
+import shutil
+import tarfile
 
+import albumentations
+import numpy as np
+import taming.data.utils as bdu
+import yaml
+from omegaconf import OmegaConf
+from PIL import Image
 from taming.data.base import ImagePaths
 from taming.util import download, retrieve
-import taming.data.utils as bdu
+from torch.utils.data import Dataset
+from tqdm import tqdm
 
 
 def give_synsets_from_indices(indices, path_to_yaml="data/imagenet_idx_to_synset.yaml"):
@@ -95,17 +99,17 @@ class ImageNetBase(Dataset):
 
     def _load(self):
         with open(self.txt_filelist, "r") as f:
-            self.relpaths = f.read().splitlines()
-            l1 = len(self.relpaths)
-            self.relpaths = self._filter_relpaths(self.relpaths)
-            print(
-                "Removed {} files from filelist during filtering.".format(l1 - len(self.relpaths))
-            )
+            relpaths = f.read().splitlines()
+            l1 = len(relpaths)
+            relpaths = self._filter_relpaths(relpaths)
+            print("Removed {} files from filelist during filtering.".format(l1 - len(relpaths)))
 
         dataset_length = self.config.get("length", 1.0)
         assert 0.0 < dataset_length <= 1.0
-        self.relpaths = self.relpaths[: int(dataset_length * len(self.relpaths))]
-        print(f'Using {len(self.relpaths)} paths')
+        rng = random.Random(42)
+        rng.shuffle(relpaths)
+        self.relpaths = relpaths[: int(dataset_length * len(relpaths))]
+        print(f"Using {len(self.relpaths)} paths")
 
         self.synsets = [p.split("/")[0] for p in self.relpaths]
         self.abspaths = [os.path.join(self.datadir, p) for p in self.relpaths]
