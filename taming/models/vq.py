@@ -60,6 +60,8 @@ class VQModel(L.LightningModule):
         self.accumulate_steps = accumulate_steps
 
         self.strict_loading = False
+        self.example_input_array = (torch.randn(1, 3, 128, 128))
+        self.codebook_count = [0] * self.quantize.n_e
 
     @contextmanager
     def ema_scope(self, context=None):
@@ -228,8 +230,8 @@ class VQModel(L.LightningModule):
             # x is of shape (B, C, H, W)
             stacked = torch.cat([x, x_rec], dim=-2)
             stacked = (stacked * 127.5 + 127.5).to(torch.uint8)
-            for batch_idx in range(x.shape[0]):
-                self.logger.log_image(key=f"val/batch={batch_idx}", images=[stacked[batch_idx]])
+            for idx in range(x.shape[0]):
+                self.logger.log_image(key=f"val/batch={idx}", images=[stacked[idx]])
 
         return self.log_dict
 
