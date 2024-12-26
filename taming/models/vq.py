@@ -226,12 +226,11 @@ class VQModel(L.LightningModule):
     
         self.log_dict(log_dict_ae, prog_bar=False, logger=True, on_step=True, on_epoch=True)
         self.log_dict(log_dict_disc, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-        if batch_idx == 0:
+        if batch_idx % 100 == 0:
             # x is of shape (B, C, H, W)
             stacked = torch.cat([x, x_rec], dim=-2)
             stacked = (stacked * 127.5 + 127.5).to(torch.uint8)
-            for idx in range(x.shape[0]):
-                self.logger.log_image(key=f"val/batch={idx}", images=[stacked[idx]])
+            self.logger.log_image(key=f"val/batch={batch_idx}", images=[stacked[0]])
 
         return self.log_dict
 
