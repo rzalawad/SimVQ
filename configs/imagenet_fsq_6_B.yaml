@@ -4,7 +4,7 @@ trainer:
   strategy: ddp_find_unused_parameters_true
   devices: 1
   num_nodes: 1
-  precision: 16-mixed
+  precision: bf16
   max_epochs: 50
   check_val_every_n_epoch: 1
   num_sanity_val_steps: 0
@@ -12,8 +12,7 @@ trainer:
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        dirpath: "vq_log/simvq_1k" # Please specify your own path
-        save_top_k: -1 # save all checkpoints
+        save_top_k: 5 # save all checkpoints
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
@@ -21,6 +20,8 @@ trainer:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
       project: "VQGAN"
+      # log_model: all  # logs while training
+      log_model: true  # logs at the end of training
     # class_path: lightning.pytorch.loggers.TensorBoardLogger
     # init_args:
     #   save_dir: "vq_log/simvq_1k" #Please specify your own path
@@ -33,7 +34,7 @@ model:
     accumulate_steps: 8
     ddconfig:
       double_z: False
-      z_channels: 128
+      z_channels: 6
       resolution: 128
       in_channels: 3
       out_ch: 3
@@ -42,12 +43,9 @@ model:
       num_res_blocks: 2
 
     quantconfig:
-      target: taming.modules.vqvae.quantize.SimVQ
+      target: taming.modules.vqvae.quantize.FSQ
       params:
-        n_e: 65536
-        e_dim: 128
-        beta: 0.25
-        legacy: false
+        levels: [8,8,8, 5,5,5]
 
     lossconfig:
       target: taming.modules.losses.vqperceptual.VQLPIPSWithDiscriminator
